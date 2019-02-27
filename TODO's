@@ -1,0 +1,15 @@
+We assume that the embeddings will do the work for the descriptions.
+
+Algorithms we want to try:
+1. SVM (with GridSearch).
+2. PCA with SVM
+3. Random Forest
+4. XGBoost/Catbosot
+5. Neural networks
+
+After this one we will try the same things without the description at all (dropping the column).
+This will allow us to check the effectivity of the embeddings.
+
+Tasks:
+Yuval - finish the embeddings + Random Forest + XGboost (without the embeddings)
+Jakov - 1. + 2. without the columns of the item description (there is more than one column).
