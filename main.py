@@ -4,14 +4,13 @@
 # Submitted by Yuval Helman and Jakov Zingerman
 
 import fasttext
-from InferSent.encoder.models import InferSent
-import random_forest
+from ..mercariPriceData.InferSent.encoder.models import InferSent
 import pandas as pd
 import torch
 import nltk
 import numpy as np
 
-puredata = pd.read_csv('./train.tsv', sep='\t', encoding="utf_8")
+puredata = pd.read_csv('../mercariPriceData/dataset/train.tsv', sep='\t', encoding="utf_8")
 
 
 def show_data_structure():
@@ -45,28 +44,29 @@ def show_data_structure():
 ''' series_to_encode: a 'series' type to be transfered to vectors by infersent '''
 # https://github.com/facebookresearch/InferSent
 def infersent_encoder(series_to_encode):
-    sentences = series_to_encode.tolist()  # TODO: erase the [:2]
+    sentences = series_to_encode.tolist()
 
     nltk.download('punkt')
 
     V = 2
-    MODEL_PATH = 'C:/work/priceSuggestionMercari/InferSent/encoder/infersent%s.pickle' % V # folders
+
+    MODEL_PATH = '../mercariPriceData/InferSent/encoder/infersent%s.pickle' % V # folders
     params_model = {'bsize': 64, 'word_emb_dim': 300, 'enc_lstm_dim': 2048,
                     'pool_type': 'max', 'dpout_model': 0.0, 'version': V}
     infersent = InferSent(params_model)
     infersent.load_state_dict(torch.load(MODEL_PATH))
 
-    W2V_PATH = 'C:/work/priceSuggestionMercari/dataset/fastText/cc.en.300.vec' # folders
+    W2V_PATH = '../mercariPriceData/dataset/fastText/cc.en.300.vec' # folders
     infersent.set_w2v_path(W2V_PATH)
-    try:
-        infersent.build_vocab(sentences, tokenize=True)
-        print("done build vocab")
-    except: # DEBUG. this thing is not working for a lot of data...
-        print(sentences)
-        print("number 1")
+    # try:
+    infersent.build_vocab(sentences, tokenize=True)
+    print("done build vocab")
+    # except: # DEBUG. this thing is not working for a lot of data...
+    #     print(sentences)
+    #     print("number 1")
     try:
         embeddings = infersent.encode(sentences, tokenize=True)
-        print("done build vocab")
+        print("done encoding")
         return embeddings
     except:
         print("number 2")
@@ -75,27 +75,31 @@ def infersent_encoder(series_to_encode):
 
 
 def data_preprocessing():
-    data = puredata
+    data = puredata.copy()
 
-    # Change anything with "No description yet" to an empty string.. # TODO: mabye we can let it stay.. can try both
-    #data.loc[isinstance(data['item_description'] , str) == False] = 'UNKNOWNyuval'
-    #data.loc[data['item_description'] == "No description yet"]
-    #print(data.loc[:,  isinstance(data['item_description'] , str) == False])
+    # for row, val in enumerate(data['item_description']):
 
+    # Change anything with "No description yet" to an empty string..
     for row_index,val in enumerate(data['item_description']):
-        if( isinstance(val , str) == False ):
-            print(val)
+        if( isinstance(val , str) == False):
             col_index = data.columns.get_loc("item_description")
-            data.iat[row_index, col_index] = ''
+            print(data.iat[row_index, col_index])
+            data.iat[row_index, col_index] = 'No description yet'
+            print("after: ", data.iat[row_index, col_index])
 
     print("done fixing values")
     # ___________________________________________________________________________________________________
     # Using infersent on the item_description column in order to transpose it to vectors (size: 4096)
-    description_embeddings = pd.DataFrame(infersent_encoder(data['item_description']))
+    data = data.iloc[:2] # DEBUG
+    series_descriptions = pd.Series(data["item_description"])
+    print(series_descriptions)
 
+    description_embeddings = infersent_encoder(series_descriptions)
     # delete item_description column and add the vectors instead
     data.drop(['item_description'], axis=1)
     data = pd.concat([data, description_embeddings], axis=1)
+
+
 
     # print(data.head(50))
     # TODO: something doesn't work with this. when I run this on the first 5 rows, its ok. when I run it on all of them.
@@ -114,6 +118,6 @@ if __name__ == '__main__':
     #show_data_structure()
 
     sentences = (data['item_description']).tolist()
-
+    print(sentences)
     # Save training data into a CSV:
     data.to_csv('./numeric_train.csv', encoding='utf_8', index=False)
