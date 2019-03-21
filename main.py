@@ -3,18 +3,18 @@
 
 # Submitted by Yuval Helman and Jakov Zingerman
 
-import fasttext
-from ..mercariPriceData.InferSent.encoder.models import InferSent
+from mercariPriceData.InferSent.encoder.models import InferSent # change folders
 import pandas as pd
+
 import torch
 import nltk
 import numpy as np
 
-puredata = pd.read_csv('../mercariPriceData/dataset/train.tsv', sep='\t', encoding="utf_8")
+puredata = pd.read_csv('./mercariPriceData/dataset/train.tsv', sep='\t', encoding="utf_8") # change folders
 
 
 def show_data_structure():
-    f = data
+    f = puredata
     print('#################################################')
     print('LOOKING ON THE DATA STRUCTURE:')
     print('#################################################')
@@ -42,70 +42,119 @@ def show_data_structure():
 
 
 ''' series_to_encode: a 'series' type to be transfered to vectors by infersent '''
+''' batch_size_to_encode: number of sentences to encode each time (so we don't run out of RAM) '''
+''' return: a dataframe of the sentences encodings to 4096 length vectors'''
 # https://github.com/facebookresearch/InferSent
-def infersent_encoder(series_to_encode):
+def infersent_encoder(series_to_encode, batch_size_to_encode):
     sentences = series_to_encode.tolist()
 
     nltk.download('punkt')
-
     V = 2
-
-    MODEL_PATH = '../mercariPriceData/InferSent/encoder/infersent%s.pickle' % V # folders
+    MODEL_PATH = './mercariPriceData/InferSent/encoder/infersent%s.pickle' % V # change folders
     params_model = {'bsize': 64, 'word_emb_dim': 300, 'enc_lstm_dim': 2048,
                     'pool_type': 'max', 'dpout_model': 0.0, 'version': V}
     infersent = InferSent(params_model)
     infersent.load_state_dict(torch.load(MODEL_PATH))
-
-    W2V_PATH = '../mercariPriceData/dataset/fastText/cc.en.300.vec' # folders
+    W2V_PATH = './mercariPriceData/dataset/fastText/cc.en.300.vec' # change folders
     infersent.set_w2v_path(W2V_PATH)
-    # try:
-    infersent.build_vocab(sentences, tokenize=True)
-    print("done build vocab")
-    # except: # DEBUG. this thing is not working for a lot of data...
-    #     print(sentences)
-    #     print("number 1")
     try:
-        embeddings = infersent.encode(sentences, tokenize=True)
+        infersent.build_vocab(sentences, tokenize=True)
+        print("done build vocab")
+    except Exception as e:
+        print('build vocab failed')
+        print(e)
+
+    # Cant Encode all at once.. (not enough RAM) , so we need to do it in batches
+    full_embeddings = [list(np.zeros(4096))]
+    end_index, start_index, embeddings = 0, 0, 0
+    try:
+        # Iterate sentences and encode on batches
+        start_index = 0
+        end_index = start_index + batch_size_to_encode
+        #print("blip: ", sentences.count())
+        print("number of sentences total: ", len(sentences))
+        while (end_index < len(sentences)):
+            part_of_sentences = sentences[start_index:end_index].copy() # 0 to 1999
+            embeddings = infersent.encode(part_of_sentences, tokenize=True)
+            # Iteration phase:
+            start_index = end_index
+            end_index = start_index + batch_size_to_encode
+            full_embeddings = np.append(full_embeddings, embeddings, axis=0)
+            # full_embeddings = np.concatenate((full_embeddings, embeddings))
+
+        # when end_index is bigger then the length, do a last encoding
+        part_of_sentences = sentences[start_index:end_index].copy()
+        embeddings = infersent.encode(part_of_sentences, tokenize=True)
+        full_embeddings = np.append(full_embeddings, embeddings, axis=0)
+
         print("done encoding")
-        return embeddings
-    except:
-        print("number 2")
-
-
+        full_embeddings = full_embeddings[1:]
+        full_embeddings = pd.DataFrame.from_records(full_embeddings, #columns=[np.arange(0,4096)]
+        )
+        return full_embeddings
+    except Exception as e:
+        print('encoding failed on part of list: ', start_index, end_index)
+        print(e)
 
 
 def data_preprocessing():
     data = puredata.copy()
 
-    # for row, val in enumerate(data['item_description']):
-
-    # Change anything with "No description yet" to an empty string..
+    # Change anything with Nan \ Not-A-String to an empty string..
     for row_index,val in enumerate(data['item_description']):
         if( isinstance(val , str) == False):
             col_index = data.columns.get_loc("item_description")
-            print(data.iat[row_index, col_index])
-            data.iat[row_index, col_index] = 'No description yet'
-            print("after: ", data.iat[row_index, col_index])
+            # print(data.iat[row_index, col_index])
+            data.iat[row_index, col_index] = ''
+            # print("after: ", data.iat[row_index, col_index])
+    for row_index,val in enumerate(data['name']):
+        if( isinstance(val , str) == False):
+            col_index = data.columns.get_loc("name")
+            # print(data.iat[row_index, col_index])
+            data.iat[row_index, col_index] = ''
+            # print("after: ", data.iat[row_index, col_index])
+    for row_index, val in enumerate(data['category_name']):
+        if (isinstance(val, str) == False):
+            col_index = data.columns.get_loc("category_name")
+            # print(data.iat[row_index, col_index])
+            data.iat[row_index, col_index] = ''
+            # print("after: ", data.iat[row_index, col_index])
+    for row_index, val in enumerate(data['brand_name']):
+        if (isinstance(val, str) == False):
+            col_index = data.columns.get_loc("brand_name")
+            # print(data.iat[row_index, col_index])
+            data.iat[row_index, col_index] = ''
+            # print("after: ", data.iat[row_index, col_index])
 
-    print("done fixing values")
+    # ___________________________________________________________________________________________________
+    # Using one-hot encoding on the shipping and item_condition_id columns
+    data = pd.concat([data, pd.get_dummies(data['shipping'], prefix='shipping')], axis=1)
+    data.drop(columns='shipping', inplace=True)
+
+    data = pd.concat([data, pd.get_dummies(data['item_condition_id'], prefix='item_condition_id')], axis=1)
+    data.drop(columns='item_condition_id', inplace=True)
     # ___________________________________________________________________________________________________
     # Using infersent on the item_description column in order to transpose it to vectors (size: 4096)
-    data = data.iloc[:2] # DEBUG
-    series_descriptions = pd.Series(data["item_description"])
-    print(series_descriptions)
+    data = data.iloc[:100000] # TODO: DEBUG.. erase that for doing for all data
+    # print(series_descriptions)
+    batch_size_to_encode = 50000
 
-    description_embeddings = infersent_encoder(series_descriptions)
-    # delete item_description column and add the vectors instead
-    data.drop(['item_description'], axis=1)
+    description_embeddings = infersent_encoder(pd.Series(data["item_description"]), batch_size_to_encode)
+    data.drop(['item_description'], axis=1, inplace=True)
     data = pd.concat([data, description_embeddings], axis=1)
 
+    description_embeddings = infersent_encoder(pd.Series(data["name"]), batch_size_to_encode)
+    data.drop(['name'], axis=1, inplace=True)
+    data = pd.concat([data, description_embeddings], axis=1)
 
+    description_embeddings = infersent_encoder(pd.Series(data["category_name"]), batch_size_to_encode)
+    data.drop(['category_name'], axis=1, inplace=True)
+    data = pd.concat([data, description_embeddings], axis=1)
 
-    # print(data.head(50))
-    # TODO: something doesn't work with this. when I run this on the first 5 rows, its ok. when I run it on all of them.
-#"TODO:"    it crashes. Need to check for some NaN's or something like this... run on DEBUG more (didn't do it becuase GYM!
+    description_embeddings = infersent_encoder(pd.Series(data["brand_name"]), batch_size_to_encode)
+    data.drop(['brand_name'], axis=1, inplace=True)
+    data = pd.concat([data, description_embeddings], axis=1)
     # ___________________________________________________________________________________________________
-
 
     return data
 
@@ -114,10 +163,9 @@ if __name__ == '__main__':
     # TODO: tf-idf
     # TODO: figure out how to change the dataframe and save the changes to a CSV, so we can do the preproccessing only once! :)
     data = data_preprocessing()
-    #print(data.head())
-    #show_data_structure()
 
-    sentences = (data['item_description']).tolist()
-    print(sentences)
+    # show_data_structure()
+   #print(puredata.head())
+
     # Save training data into a CSV:
     data.to_csv('./numeric_train.csv', encoding='utf_8', index=False)
