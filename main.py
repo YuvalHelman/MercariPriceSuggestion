@@ -5,16 +5,23 @@
 
 from mercariPriceData.InferSent.encoder.models import InferSent # change folders
 import pandas as pd
-
+import testing_the_data as tests
 import torch
 import nltk
 import numpy as np
+import time
 
-puredata = pd.read_csv('./mercariPriceData/dataset/train.tsv', sep='\t', encoding="utf_8") # change folders
+#################################################
+# Global Variables:
+puredata = pd.DataFrame()
 
+#################################################
 
-def show_data_structure():
-    f = puredata
+''' 
+A function that prints basic information regarding the data we are dealing with 
+'''
+def show_data_structure(f):
+
     print('#################################################')
     print('LOOKING ON THE DATA STRUCTURE:')
     print('#################################################')
@@ -73,7 +80,7 @@ def infersent_encoder(series_to_encode, batch_size_to_encode):
         end_index = start_index + batch_size_to_encode
         #print("blip: ", sentences.count())
         print("number of sentences total: ", len(sentences))
-        while (end_index < len(sentences)):
+        while end_index < len(sentences):
             part_of_sentences = sentences[start_index:end_index].copy() # 0 to 1999
             embeddings = infersent.encode(part_of_sentences, tokenize=True)
             # Iteration phase:
@@ -82,7 +89,7 @@ def infersent_encoder(series_to_encode, batch_size_to_encode):
             full_embeddings = np.append(full_embeddings, embeddings, axis=0)
             # full_embeddings = np.concatenate((full_embeddings, embeddings))
 
-        # when end_index is bigger then the length, do a last encoding
+        # when end_index is bigger-equal to the length, do a last encoding
         part_of_sentences = sentences[start_index:end_index].copy()
         embeddings = infersent.encode(part_of_sentences, tokenize=True)
         full_embeddings = np.append(full_embeddings, embeddings, axis=0)
@@ -96,9 +103,11 @@ def infersent_encoder(series_to_encode, batch_size_to_encode):
         print('encoding failed on part of list: ', start_index, end_index)
         print(e)
 
-
-def data_preprocessing():
-    data = puredata.copy()
+'''
+A preproccessing of the data, using InferSent, One-Hot encodings and arranging NaN's etc.
+Returns: a new DataFrame with only numerical data. column length: [ (4096*4) + 2 + 5 
+'''
+def data_preprocessing(data):
 
     # Change anything with Nan \ Not-A-String to an empty string..
     for row_index,val in enumerate(data['item_description']):
@@ -135,37 +144,74 @@ def data_preprocessing():
     data.drop(columns='item_condition_id', inplace=True)
     # ___________________________________________________________________________________________________
     # Using infersent on the item_description column in order to transpose it to vectors (size: 4096)
-    data = data.iloc[:100000] # TODO: DEBUG.. erase that for doing for all data
+    data = data.iloc[:500000] # TODO: DEBUG.. erase that for doing for all data
     # print(series_descriptions)
     batch_size_to_encode = 50000
 
+
+    start = time.time()
     description_embeddings = infersent_encoder(pd.Series(data["item_description"]), batch_size_to_encode)
     data.drop(['item_description'], axis=1, inplace=True)
     data = pd.concat([data, description_embeddings], axis=1)
+    print("done encoding item_description")
+    end = time.time()
+    print("Time for this encoding: ", end - start)
 
+    start = time.time()
     description_embeddings = infersent_encoder(pd.Series(data["name"]), batch_size_to_encode)
     data.drop(['name'], axis=1, inplace=True)
     data = pd.concat([data, description_embeddings], axis=1)
+    print("done encoding name")
+    end = time.time()
+    print("Time for this encoding: ", end - start)
 
+    start = time.time()
     description_embeddings = infersent_encoder(pd.Series(data["category_name"]), batch_size_to_encode)
     data.drop(['category_name'], axis=1, inplace=True)
     data = pd.concat([data, description_embeddings], axis=1)
+    print("done encoding category_name")
+    end = time.time()
+    print("Time for this encoding: ", end - start)
 
+    start = time.time()
     description_embeddings = infersent_encoder(pd.Series(data["brand_name"]), batch_size_to_encode)
     data.drop(['brand_name'], axis=1, inplace=True)
     data = pd.concat([data, description_embeddings], axis=1)
+    print("done encoding brand_name")
+    end = time.time()
+    print("Time for this encoding: ", end - start)
+
     # ___________________________________________________________________________________________________
 
     return data
 
 
-if __name__ == '__main__':
-    # TODO: tf-idf
-    # TODO: figure out how to change the dataframe and save the changes to a CSV, so we can do the preproccessing only once! :)
-    data = data_preprocessing()
+def build_numerical_data(data):
 
-    # show_data_structure()
-   #print(puredata.head())
+    start = time.time()
+    data = data_preprocessing(data)
+    end = time.time()
+    print("Time for data preprocessing: ", end - start)
 
     # Save training data into a CSV:
     data.to_csv('./numeric_train.csv', encoding='utf_8', index=False)
+
+    return data
+
+
+if __name__ == '__main__':
+
+    #show_data_structure(puredata) # printing information about data (before any changes)
+
+    ''' Used for transforming the real data into numerical using TF-IDF '''
+    puredata = pd.read_csv('./mercariPriceData/dataset/train.tsv', sep='\t', encoding="utf_8")  # change folders
+    data = build_numerical_data(puredata)
+    ''' '''
+
+    ''' Used for reducing the numerical-data into a lower dimensional space '''
+    #data = pd.read_csv('./numeric_train.csv', sep='\t', encoding="utf_8")  # change folders
+    red_data, labels = tests.get_reduced_data(data, 500)
+
+    red_data.to_csv('./reduced_train_500.csv', encoding='utf_8', index=False)
+    ''' '''
+
