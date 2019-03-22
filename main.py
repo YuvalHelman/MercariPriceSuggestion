@@ -78,7 +78,7 @@ def infersent_encoder(series_to_encode, batch_size_to_encode):
         # Iterate sentences and encode on batches
         start_index = 0
         end_index = start_index + batch_size_to_encode
-        #print("blip: ", sentences.count())
+
         print("number of sentences total: ", len(sentences))
         while end_index < len(sentences):
             part_of_sentences = sentences[start_index:end_index].copy() # 0 to 1999
@@ -89,10 +89,12 @@ def infersent_encoder(series_to_encode, batch_size_to_encode):
             full_embeddings = np.append(full_embeddings, embeddings, axis=0)
             # full_embeddings = np.concatenate((full_embeddings, embeddings))
 
-        # when end_index is bigger-equal to the length, do a last encoding
-        part_of_sentences = sentences[start_index:end_index].copy()
-        embeddings = infersent.encode(part_of_sentences, tokenize=True)
-        full_embeddings = np.append(full_embeddings, embeddings, axis=0)
+        # when end_index is bigger-equal to the length, do a last encoding manually
+        end_index = len(sentences)
+        if end_index > start_index:
+            part_of_sentences = sentences[start_index:end_index].copy()
+            embeddings = infersent.encode(part_of_sentences, tokenize=True)
+            full_embeddings = np.append(full_embeddings, embeddings, axis=0)
 
         print("done encoding")
         full_embeddings = full_embeddings[1:]
@@ -102,6 +104,8 @@ def infersent_encoder(series_to_encode, batch_size_to_encode):
     except Exception as e:
         print('encoding failed on part of list: ', start_index, end_index)
         print(e)
+
+
 
 '''
 A preproccessing of the data, using InferSent, One-Hot encodings and arranging NaN's etc.
@@ -144,10 +148,9 @@ def data_preprocessing(data):
     data.drop(columns='item_condition_id', inplace=True)
     # ___________________________________________________________________________________________________
     # Using infersent on the item_description column in order to transpose it to vectors (size: 4096)
-    data = data.iloc[:500000] # TODO: DEBUG.. erase that for doing for all data
+    data = data.iloc[:1000] # TODO: DEBUG.. erase that for doing for all data
     # print(series_descriptions)
-    batch_size_to_encode = 50000
-
+    batch_size_to_encode = 300
 
     start = time.time()
     description_embeddings = infersent_encoder(pd.Series(data["item_description"]), batch_size_to_encode)
@@ -212,6 +215,6 @@ if __name__ == '__main__':
     #data = pd.read_csv('./numeric_train.csv', sep='\t', encoding="utf_8")  # change folders
     red_data, labels = tests.get_reduced_data(data, 500)
 
-    red_data.to_csv('./reduced_train_500.csv', encoding='utf_8', index=False)
+    red_data.to_csv('./reduced_train.csv', encoding='utf_8', index=False)
     ''' '''
 
