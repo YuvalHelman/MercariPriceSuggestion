@@ -4,14 +4,17 @@
 # Submitted by Yuval Helman and Jakov Zingerman
 
 import pickle
-
+import xgboost as xgb
 
 ''' 
 model: the trained model (After fit)
 filename: a string containing of the file name (relative to the top directory, or full path)
 '''
-def save_model_on_file(model, filename):
-    pickle.dump(model, open(filename, 'wb'))
+def save_model_on_file(model, filename, is_XGB=False):
+    if is_XGB == True:
+        model.save_model(filename)
+    else:
+        pickle.dump(model, open(filename, 'wb'))
 
 ''' 
 filename: a string containing of the file name (relative to the top directory, or full path)

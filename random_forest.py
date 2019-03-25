@@ -5,7 +5,7 @@
 
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import GridSearchCV
-import xgboost as xgb
+from xgboost import XGBRegressor
 import pickle
 
 def grid_search(classifier, arguments, data, n_fold, default_args=None):
@@ -53,4 +53,33 @@ def random_forest_builder(data):
 
 
 
+def XGBoosting(subsample, max_depth, min_samples_split, learning_rate, eval_metric, parallel_num=1):
+    # specify parameters via map, definition are same as c++ version
+
+    param = {'min_samples_split': min_samples_split, 'max_depth': max_depth, 'learning_rate': learning_rate,
+            'eval_metric': eval_metric, 'silent': 1, 'subsample': subsample, 'num_parallel_tree': parallel_num}
+
+    model = XGBRegressor()
+
+
+    # specify validations set to watch performance
+    # watchlist = [(dtest, 'eval'), (dtrain, 'train')]
+    # num_round = 2
+    # bst = xgb.train(param, dtrain, num_round, watchlist)
+
+    return model
+
+
 def build_models():
+    boost_RF_model = XGBoosting(0.7, # subsample
+                                100, # max_depth
+                                5, # min_samples_split
+                                0.09, # learning_rate
+                                'mae', # eval_metric
+                                5) # num_parallel_tree
+    XGboost_model = XGBoosting(0.7,  # subsample
+                                100,  # max_depth
+                                5,  # min_samples_split
+                                0.09,  # learning_rate
+                                'mae',  # eval_metric
+                                1)  # num_parallel_tree
