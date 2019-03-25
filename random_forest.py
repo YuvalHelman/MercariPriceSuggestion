@@ -1,6 +1,34 @@
+# A Project regarding the following Kaggle competition:
+# https://www.kaggle.com/c/mercari-price-suggestion-challenge
+
+# Submitted by Yuval Helman and Jakov Zingerman
+
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import GridSearchCV
 import xgboost as xgb
+import pickle
+
+def grid_search(classifier, arguments, data, n_fold, default_args=None):
+    '''
+    Returns the an instance of the classifier, initialized with the best configuration.
+    n_fold is the number of cross validation folds to use. You may use GridSearchCV.
+    '''
+    print("Started grid_search")
+    y_train = data['price']
+    X_train = data.drop(columns=['price'])
+    if default_args:
+        model = classifier(**default_args)
+    else:
+        model = classifier()
+    gs = GridSearchCV(model, arguments, cv=n_fold, scoring="accuracy")
+    print("After grid_search initialization")
+    gs.fit(X_train, y_train.values.ravel())
+    print("After grid_seach fit")
+    best_arguments = gs.best_params_
+    if default_args is not None:
+      return classifier(**best_arguments, **default_args)
+    return classifier(**best_arguments)
+
 
 def XGboost_builder(data):
     arguments = {'max_depth': [2, 3], 'learning_rate': [1e-5, 1e-1], 'silent': [True]}
@@ -23,23 +51,6 @@ def random_forest_builder(data):
 
     return clf
 
-def grid_search(classifier, arguments, data, n_fold, default_args=None):
-    '''
-    Returns the an instance of the classifier, initialized with the best configuration.
-    n_fold is the number of cross validation folds to use. You may use GridSearchCV.
-    '''
-    print("Started grid_search")
-    y_train = data['price']
-    X_train = data.drop(columns=['price'])
-    if default_args:
-        model = classifier(**default_args)
-    else:
-        model = classifier()
-    gs = GridSearchCV(model, arguments, cv=n_fold, scoring="accuracy")
-    print("After grid_search initialization")
-    gs.fit(X_train, y_train.values.ravel())
-    print("After grid_seach fit")
-    best_arguments = gs.best_params_
-    if default_args is not None:
-      return classifier(**best_arguments, **default_args)
-    return classifier(**best_arguments)
+
+
+def build_models():
