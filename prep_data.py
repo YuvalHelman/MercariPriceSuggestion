@@ -3,7 +3,7 @@
 
 # Submitted by Yuval Helman and Jakov Zingerman
 
-from mercariPriceData.InferSent.encoder.models import InferSent # change folders
+from mercariPriceData.InferSent.encoder.models import InferSent  # change folders
 import pandas as pd
 import testing_the_data as tests
 import torch
@@ -15,13 +15,14 @@ import time
 # Global Variables:
 puredata = pd.DataFrame()
 
+
 #################################################
 
-''' 
-A function that prints basic information regarding the data we are dealing with 
-'''
-def show_data_structure(f):
 
+def show_data_structure(f):
+    """
+    A function that prints basic information regarding the data we are dealing with
+    """
     print('#################################################')
     print('LOOKING ON THE DATA STRUCTURE:')
     print('#################################################')
@@ -53,18 +54,20 @@ def show_data_structure(f):
 ''' series_to_encode: a 'series' type to be transfered to vectors by infersent '''
 ''' batch_size_to_encode: number of sentences to encode each time (so we don't run out of RAM) '''
 ''' return: a dataframe of the sentences encodings to 4096 length vectors'''
+
+
 # https://github.com/facebookresearch/InferSent
 def infersent_encoder(series_to_encode, batch_size_to_encode):
     sentences = series_to_encode.tolist()
 
     nltk.download('punkt')
     V = 2
-    MODEL_PATH = './mercariPriceData/InferSent/encoder/infersent%s.pickle' % V # change folders
+    MODEL_PATH = './mercariPriceData/InferSent/encoder/infersent%s.pickle' % V  # change folders
     params_model = {'bsize': 64, 'word_emb_dim': 300, 'enc_lstm_dim': 2048,
                     'pool_type': 'max', 'dpout_model': 0.0, 'version': V}
     infersent = InferSent(params_model)
     infersent.load_state_dict(torch.load(MODEL_PATH))
-    W2V_PATH = './mercariPriceData/dataset/fastText/cc.en.300.vec' # change folders
+    W2V_PATH = './mercariPriceData/dataset/fastText/cc.en.300.vec'  # change folders
     infersent.set_w2v_path(W2V_PATH)
     try:
         infersent.build_vocab(sentences, tokenize=True)
@@ -83,7 +86,7 @@ def infersent_encoder(series_to_encode, batch_size_to_encode):
 
         print("number of sentences total: ", len(sentences))
         while end_index < len(sentences):
-            part_of_sentences = sentences[start_index:end_index].copy() # 0 to 1999
+            part_of_sentences = sentences[start_index:end_index].copy()  # 0 to 1999
             embeddings = infersent.encode(part_of_sentences, tokenize=True)
             # Iteration phase:
             start_index = end_index
@@ -100,30 +103,28 @@ def infersent_encoder(series_to_encode, batch_size_to_encode):
 
         print("done encoding")
         full_embeddings = full_embeddings[1:]
-        full_embeddings = pd.DataFrame.from_records(full_embeddings, #columns=[np.arange(0,4096)]
-        )
+        full_embeddings = pd.DataFrame.from_records(full_embeddings,  # columns=[np.arange(0,4096)]
+                                                    )
         return full_embeddings
     except Exception as e:
         print('encoding failed on part of list: ', start_index, end_index)
         print(e)
 
 
-
-'''
-A preprocessing of the data, using InferSent, One-Hot encodings and arranging NaN's etc.
-Returns: a new DataFrame with only numerical data. column length: [ (4096*4) + 2 + 5 
-'''
 def data_preprocessing(data):
-
+    """
+    A preprocessing of the data, using InferSent, One-Hot encodings and arranging NaN's etc.
+    Returns: a new DataFrame with only numerical data. column length: [ (4096*4) + 2 + 5
+    """
     # Change anything with Nan \ Not-A-String to an empty string..
-    for row_index,val in enumerate(data['item_description']):
-        if( isinstance(val , str) == False):
+    for row_index, val in enumerate(data['item_description']):
+        if (isinstance(val, str) == False):
             col_index = data.columns.get_loc("item_description")
             # print(data.iat[row_index, col_index])
             data.iat[row_index, col_index] = ''
             # print("after: ", data.iat[row_index, col_index])
-    for row_index,val in enumerate(data['name']):
-        if( isinstance(val , str) == False):
+    for row_index, val in enumerate(data['name']):
+        if (isinstance(val, str) == False):
             col_index = data.columns.get_loc("name")
             # print(data.iat[row_index, col_index])
             data.iat[row_index, col_index] = ''
@@ -150,7 +151,7 @@ def data_preprocessing(data):
     data.drop(columns='item_condition_id', inplace=True)
     # ___________________________________________________________________________________________________
     # Using infersent on the item_description column in order to transpose it to vectors (size: 4096)
-    data = data.iloc[:1000] # TODO: DEBUG.. erase that for doing for all data
+    data = data.iloc[:1000]  # TODO: DEBUG.. erase that for doing for all data
     # print(series_descriptions)
     batch_size_to_encode = 300
 
@@ -192,7 +193,6 @@ def data_preprocessing(data):
 
 
 def build_numerical_data(data):
-
     start = time.time()
     data = data_preprocessing(data)
     end = time.time()
@@ -205,18 +205,12 @@ def build_numerical_data(data):
 
 
 if __name__ == '__main__':
-
     ''' Show standard information about the Data we're dealing with  '''
     show_data_structure(puredata)
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     '''fetching the data and transforming it into numerical data using Infersent '''
     puredata = pd.read_csv('./mercariPriceData/dataset/train.tsv', sep='\t', encoding="utf_8")  # change folders
     data = build_numerical_data(puredata)
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     ''' Write the numeric data into a CSV, then use PCA on it and save to another CSV (split to test/train) '''
     n_data = pd.read_csv('./numeric_train.csv', sep='\t', encoding="utf_8")  # change folders
     X_train, X_test, y_train, y_test = tests.get_reduced_data(n_data, 500)
@@ -225,6 +219,3 @@ if __name__ == '__main__':
     y_test.to_csv('./test_labels_500.csv', encoding='utf_8', index=False)
     X_train.to_csv('./reduced_train_500.csv', encoding='utf_8', index=False)
     y_train.to_csv('./train_labels_500.csv', encoding='utf_8', index=False)
-
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-
