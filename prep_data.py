@@ -10,6 +10,9 @@ import torch
 import nltk
 import numpy as np
 import time
+from sklearn.decomposition import PCA
+from sklearn.model_selection import train_test_split
+
 
 #################################################
 # Global Variables:
@@ -151,9 +154,9 @@ def data_preprocessing(data):
     data.drop(columns='item_condition_id', inplace=True)
     # ___________________________________________________________________________________________________
     # Using infersent on the item_description column in order to transpose it to vectors (size: 4096)
-    data = data.iloc[:5000]  # TODO: DEBUG.. erase that for doing for all data
+    data = data.iloc[:400000]  # TODO: DEBUG.. erase that for doing for all data
     # print(series_descriptions)
-    batch_size_to_encode = 600
+    batch_size_to_encode = 15000
 
     start = time.time()
     description_embeddings = infersent_encoder(pd.Series(data["item_description"]), batch_size_to_encode)
@@ -204,17 +207,39 @@ def build_numerical_data(data):
     return data
 
 
+''' 
+Splitting the labels and the predictive data and using PCA to reduce dimensionality
+'''
+def get_reduced_data(data, reduced_dim=500):
+    # Get labels outside
+
+    labels = data.loc[:, 'price'].copy()
+    data.drop(['price'], axis=1, inplace=True)
+
+    pca = PCA(n_components=reduced_dim)
+    Reduced_data = pca.fit_transform(data)
+    Reduced_data = pd.DataFrame(Reduced_data)
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        data, labels, test_size=0.33, random_state=None)
+
+    print("data shape before: ", data.shape)
+    print("data shape after: ", Reduced_data.shape)
+
+    return X_train, X_test, y_train, y_test
+
+
 if __name__ == '__main__':
     ''' Show standard information about the Data we're dealing with  '''
     # show_data_structure(puredata)
 
     '''fetching the data and transforming it into numerical data using Infersent '''
-    # puredata = pd.read_csv('./mercariPriceData/dataset/train.tsv', sep='\t', encoding="utf_8")  # change folders
-    # data = build_numerical_data(puredata)
+    puredata = pd.read_csv('./mercariPriceData/dataset/train.tsv', sep='\t', encoding="utf_8")  # change folders
+    data = build_numerical_data(puredata)
 
     ''' Write the numeric data into a CSV, then use PCA on it and save to another CSV (split to test/train) '''
     n_data = pd.read_csv('./numeric_train.csv')  # change folders
-    X_train, X_test, y_train, y_test = tests.get_reduced_data(n_data, 30)
+    X_train, X_test, y_train, y_test = get_reduced_data(n_data, 500)
     X_test.to_csv('./x_test.csv', encoding='utf_8', index=False, header=True)
     y_test.to_csv('./y_test.csv', encoding='utf_8', index=False, header=True)
     X_train.to_csv('./x_train.csv', encoding='utf_8', index=False, header=True)
