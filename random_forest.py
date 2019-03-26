@@ -6,7 +6,10 @@
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import GridSearchCV
 from xgboost import XGBRegressor
+import xgboost as xgb
 import pickle
+import pandas as pd
+from sklearn.metrics import explained_variance_score
 
 def grid_search(classifier, arguments, data, n_fold, default_args=None):
     '''
@@ -53,13 +56,14 @@ def random_forest_builder(data):
 
 
 
-def XGBoosting(subsample, max_depth, min_samples_split, learning_rate, eval_metric, parallel_num=1):
+def XGBoosting(subsample, max_depth, min_samples_split, learning_rate, eval_metric, parallel_num=1, n_trees=10):
     # specify parameters via map, definition are same as c++ version
 
     param = {'min_samples_split': min_samples_split, 'max_depth': max_depth, 'learning_rate': learning_rate,
-            'eval_metric': eval_metric, 'silent': 1, 'subsample': subsample, 'num_parallel_tree': parallel_num}
+            'eval_metric': eval_metric, 'silent': 1, 'subsample': subsample, 'num_parallel_tree': parallel_num
+             , 'n_estimators': n_trees}
 
-    model = XGBRegressor()
+    model = XGBRegressor(**param)
 
 
     # specify validations set to watch performance
@@ -70,16 +74,47 @@ def XGBoosting(subsample, max_depth, min_samples_split, learning_rate, eval_metr
     return model
 
 
-def build_models():
-    boost_RF_model = XGBoosting(0.7, # subsample
-                                100, # max_depth
-                                5, # min_samples_split
-                                0.09, # learning_rate
-                                'mae', # eval_metric
-                                5) # num_parallel_tree
+def build_models(x_train, y_train):
+    # boost_RF_model, param = XGBoosting(0.7, # subsample
+    #                             20, # max_depth
+    #                             5, # min_samples_split
+    #                             0.09, # learning_rate
+    #                             'mae', # eval_metric
+    #                             5,  # num_parallel_tree
+    #                             15 ) # number of trees
+    #
+    # boost_RF_model.fit(X=x_train, y=y_train)
+    # boost_RF_model.save_model('RF_model')
+
     XGboost_model = XGBoosting(0.7,  # subsample
-                                100,  # max_depth
+                                20,  # max_depth
                                 5,  # min_samples_split
                                 0.09,  # learning_rate
                                 'mae',  # eval_metric
-                                1)  # num_parallel_tree
+                                1, # num_parallel_tree
+                                15 )  # number of trees
+
+    XGboost_model.fit(X=x_train, y=y_train)
+    XGboost_model.save_model('xgboost_model')
+
+
+if __name__ == '__main__':
+    test_data = pd.read_csv('./x_test.csv')
+    test_labels = pd.read_csv('./y_test.csv')
+    # train_data = pd.read_csv('./x_train.csv')
+    # train_labels = pd.read_csv('./y_train.csv')
+
+    # build_models(train_data, train_labels)
+
+    ''' Load the models from their files '''
+    XGboost_model = XGBRegressor()
+    XGboost_model.load_model('xgboost_model')
+    # boost_RF_model = XGBRegressor()
+    # boost_RF_model.load_model('RF_model')
+    #
+
+    '''' Initiate score check on the XGBoost model '''
+    predictions = XGboost_model.predict(test_data)
+    print(test_labels.values())
+    labels_arr = test_labels.to_numpy().reshape(-1)
+    print(explained_variance_score(predictions, test_labels))
