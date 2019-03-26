@@ -6,14 +6,14 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_absolute_error
 from xgboost import XGBRegressor
 import pandas as pd
-import itertools.product
+import itertools
 
 
 class Net(nn.Module):
 
     def __init__(self, first_hidden_input_dim, second_hidden_input_dim):
         super(Net, self).__init__()
-        self.fc1 = nn.Linear(500, first_hidden_input_dim)
+        self.fc1 = nn.Linear(16392, first_hidden_input_dim)
         self.fc2 = nn.Linear(first_hidden_input_dim, second_hidden_input_dim)
         self.fc3 = nn.Linear(second_hidden_input_dim, 256)
 
@@ -34,7 +34,7 @@ def train_network(net, loss_func, optimizer, data, real_labels, num_epochs=1):
     :return:
     """
     for epoch in range(num_epochs):
-        for i, data_vector in enumerate(data):
+        for i, data_vector in data.iterrows():
             optimizer.zero_grad()
             outputs = net(data_vector)
             loss = loss_func(outputs, real_labels)
@@ -60,21 +60,24 @@ def test_network(net, test_data, test_labels):
 
 
 if __name__ == '__main__':
-    first_hidden_input_dim = 256
-    second_hidden_input_dim = 256
+
+    test_data = pd.read_csv('./x_test.csv')
+    test_labels = pd.read_csv('./y_test.csv')
+    train_data = pd.read_csv('./x_train.csv')
+    train_labels = pd.read_csv('./y_train.csv')
+    print("Successfully read csv files.")
+    first_hidden_input_dim = 20
+    second_hidden_input_dim = 20
     net = Net(first_hidden_input_dim, second_hidden_input_dim)
-    train_data = pd.read_csv("reduced_train.csv")
-    train_labels = []  # TODO: fix
-    test_data = []  # TODO: fix
-    test_labels = []  # TODO: fix
     loss_funcs = [nn.CrossEntropyLoss(), nn.MSELoss()]  # TODO: try also with other loss functions
     optimizers = [optim.SGD(net.parameters(), lr=0.001,
                             momentum=0.9)]
+    print("Successfully initialized network, loss funcs and optimizers.")
     # TODO: add other optimizers (USE ADAM also (adagrad), seems good. will write on the word's sheet that we need
     losses_and_optimizers = itertools.product(loss_funcs, optimizers)  # We will try all combinations
     accuracies = []
     for loss_optim in losses_and_optimizers:
-        net = train_network(net, loss_optim[0], loss_optim[1], train_data, train_labels, num_epochs=2)
+        net = train_network(net, loss_optim[0], loss_optim[1], train_data, train_labels, num_epochs=1)
         accuracies.append(test_network(net, test_data, test_labels))
         print("Accuracy for ({0},{1}) is {2}%".format(loss_optim[0].__class__, loss_optim[1].__class__,
                                                       accuracies[len(accuracies) - 1]))

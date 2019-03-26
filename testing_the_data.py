@@ -11,13 +11,12 @@ from sklearn.model_selection import train_test_split
 ''' 
 Splitting the labels and the predictive data and using PCA to reduce dimensionality
 '''
-def get_reduced_data(data, reduced_dim=20):
-
+def get_reduced_data(data, reduced_dim=500):
     # Get labels outside
-    labels = data['price'].copy()
+
+    labels = data.loc[:, 'price'].copy()
+    print("done copying")
     data.drop(['price'], axis=1, inplace=True)
-
-
 
     pca = PCA(n_components=reduced_dim)
     Reduced_data = pca.fit_transform(data)

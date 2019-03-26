@@ -151,9 +151,9 @@ def data_preprocessing(data):
     data.drop(columns='item_condition_id', inplace=True)
     # ___________________________________________________________________________________________________
     # Using infersent on the item_description column in order to transpose it to vectors (size: 4096)
-    data = data.iloc[:1000]  # TODO: DEBUG.. erase that for doing for all data
+    data = data.iloc[:5000]  # TODO: DEBUG.. erase that for doing for all data
     # print(series_descriptions)
-    batch_size_to_encode = 300
+    batch_size_to_encode = 600
 
     start = time.time()
     description_embeddings = infersent_encoder(pd.Series(data["item_description"]), batch_size_to_encode)
@@ -199,23 +199,24 @@ def build_numerical_data(data):
     print("Time for data preprocessing: ", end - start)
 
     # Save training data into a CSV:
-    data.to_csv('./numeric_train.csv', encoding='utf_8', index=False)
+    data.to_csv('./numeric_train.csv', encoding='utf_8', index=False, header=True)
 
     return data
 
 
 if __name__ == '__main__':
     ''' Show standard information about the Data we're dealing with  '''
-    show_data_structure(puredata)
+    # show_data_structure(puredata)
 
     '''fetching the data and transforming it into numerical data using Infersent '''
-    puredata = pd.read_csv('./mercariPriceData/dataset/train.tsv', sep='\t', encoding="utf_8")  # change folders
-    data = build_numerical_data(puredata)
-    ''' Write the numeric data into a CSV, then use PCA on it and save to another CSV (split to test/train) '''
-    n_data = pd.read_csv('./numeric_train.csv', sep='\t', encoding="utf_8")  # change folders
-    X_train, X_test, y_train, y_test = tests.get_reduced_data(n_data, 500)
+    # puredata = pd.read_csv('./mercariPriceData/dataset/train.tsv', sep='\t', encoding="utf_8")  # change folders
+    # data = build_numerical_data(puredata)
 
-    X_test.to_csv('./reduced_test_500.csv', encoding='utf_8', index=False)
-    y_test.to_csv('./test_labels_500.csv', encoding='utf_8', index=False)
-    X_train.to_csv('./reduced_train_500.csv', encoding='utf_8', index=False)
-    y_train.to_csv('./train_labels_500.csv', encoding='utf_8', index=False)
+    ''' Write the numeric data into a CSV, then use PCA on it and save to another CSV (split to test/train) '''
+    n_data = pd.read_csv('./numeric_train.csv')  # change folders
+    X_train, X_test, y_train, y_test = tests.get_reduced_data(n_data, 30)
+    X_test.to_csv('./x_test.csv', encoding='utf_8', index=False, header=True)
+    y_test.to_csv('./y_test.csv', encoding='utf_8', index=False, header=True)
+    X_train.to_csv('./x_train.csv', encoding='utf_8', index=False, header=True)
+    y_train.to_csv('./y_train.csv', encoding='utf_8', index=False, header=True)
+
