@@ -7,20 +7,22 @@ from sklearn.metrics import mean_absolute_error
 from xgboost import XGBRegressor
 import pandas as pd
 import itertools
+import numpy as np
+import matplotlib.pyplot as plt
 
 
 class Net(nn.Module):
 
     def __init__(self, first_hidden_input_dim, second_hidden_input_dim):
         super(Net, self).__init__()
-        self.fc1 = nn.Linear(16392, first_hidden_input_dim)
+        self.fc1 = nn.Linear(500, first_hidden_input_dim)
         self.fc2 = nn.Linear(first_hidden_input_dim, second_hidden_input_dim)
-        self.fc3 = nn.Linear(second_hidden_input_dim, 256)
+        self.fc3 = nn.Linear(second_hidden_input_dim, 1)
 
     def forward(self, x):
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
-        x = nn.Linear(256, 1, self.fc3(x))
+        x = self.fc3(x)
         return x
 
 
@@ -34,68 +36,93 @@ def train_network(net, loss_func, optimizer, data, real_labels, num_epochs=1):
     :return:
     """
     for epoch in range(num_epochs):
-        for i, data_vector in data.iterrows():
-            optimizer.zero_grad()
-            outputs = net(data_vector)
-            loss = loss_func(outputs, real_labels)
-            loss.backward()
-            optimizer.step()
+        outputs = net(data)
+        loss = loss_func(outputs, real_labels)
+        print(loss.data)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
 
     print("Finished training")
     return net
 
 
-def test_network(net, test_data, test_labels):
+def test_network(net, test_data, test_labels: torch.Tensor):
     correct = 0
     total = 0
     with torch.no_grad():
         outputs = net(test_data)
-        _, predicted = torch.max(outputs.data, 1)
-        total += test_labels.size(0)
-        correct += (predicted == test_labels).sum().item()
 
-    print('Accuracy of the network on the 10000 test images: %d %%' % (
-            100 * correct / total))
-    return 100 * correct / total
+    print("Test outputs are:")
+    print(outputs)
+
+    differences = []
+    for i, prediction in outputs:
+        differences.append(torch.abs(prediction - test_labels[i]))
+
+    print(differences)
+    return differences
+
+
+class Model(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.first_linear = torch.nn.Linear(500, 20)
+        self.second_linear = torch.nn.Linear(20, 20)
+        self.third_linear = torch.nn.Linear(20, 1)
+
+    def forward(self, x):
+        x = self.first_linear(x)
+        x = self.second_linear(x)
+        y_pred = self.third_linear(x)
+        return y_pred
+
+
+# print(len(list(model.parameters())))
+def count_params(model):
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
 
 if __name__ == '__main__':
-
-    test_data = pd.read_csv('./x_test.csv')
-    test_labels = pd.read_csv('./y_test.csv')
-    train_data = pd.read_csv('./x_train.csv')
-    train_labels = pd.read_csv('./y_train.csv')
+    test_data = torch.FloatTensor(pd.read_csv('./x_test.csv').values)
+    test_labels = torch.FloatTensor(pd.read_csv('./y_test.csv').values)
+    train_data = torch.FloatTensor(pd.read_csv('./x_train.csv').values)
+    train_labels = torch.FloatTensor(pd.read_csv('./y_train.csv').values)
     print("Successfully read csv files.")
-    first_hidden_input_dim = 20
-    second_hidden_input_dim = 20
-    net = Net(first_hidden_input_dim, second_hidden_input_dim)
-    loss_funcs = [nn.CrossEntropyLoss(), nn.MSELoss()]  # TODO: try also with other loss functions
-    optimizers = [optim.SGD(net.parameters(), lr=0.001,
-                            momentum=0.9)]
-    print("Successfully initialized network, loss funcs and optimizers.")
-    # TODO: add other optimizers (USE ADAM also (adagrad), seems good. will write on the word's sheet that we need
-    losses_and_optimizers = itertools.product(loss_funcs, optimizers)  # We will try all combinations
-    accuracies = []
-    for loss_optim in losses_and_optimizers:
-        net = train_network(net, loss_optim[0], loss_optim[1], train_data, train_labels, num_epochs=1)
-        accuracies.append(test_network(net, test_data, test_labels))
-        print("Accuracy for ({0},{1}) is {2}%".format(loss_optim[0].__class__, loss_optim[1].__class__,
-                                                      accuracies[len(accuracies) - 1]))
 
-    # we will now compare the results to other ML algorithms
-    model = RandomForestRegressor()
-    model.fit(train_data, train_labels)
+    model = Model()
 
-    # Get the mean absolute error on the validation data
-    predicted_prices = model.predict(test_data)
-    MAE = mean_absolute_error(test_labels, predicted_prices)
-    print('Random forest validation MAE = ', MAE)
+    loss_funcs = [nn.MSELoss(), nn.L1Loss()]  # we will iterate them to find the best
+    optimizers = [torch.optim.SGD(model.parameters(), lr=0.000001), torch.optim.Adam(model.parameters(), lr=0.000001)]
+    loss_optim = list(itertools.product(loss_funcs, optimizers))
+    predictions = []
+    ### TRAINING
+    for loss_func, optimizer in loss_optim:
+        losses = []
+        for epoch in range(10000):
+            y_pred = model(train_data)
+            loss = loss_func(y_pred, train_labels)
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            losses.append(loss.item())
 
-    # And xgboost
-    XGBModel = XGBRegressor()
-    XGBModel.fit(train_data, train_labels, verbose=False)
+        print(loss_func.__class__, optimizer.__class__)
+        print("Achieved loss of:", losses[len(losses) - 1])
+        y_test_pred = model(test_data)
+        predictions.append(y_test_pred.detach().numpy())
+        print("The predictions are:", y_test_pred)
 
-    # Get the mean absolute error on the validation data :
-    XGBpredictions = XGBModel.predict(test_data)
-    MAE = mean_absolute_error(test_labels, XGBpredictions)
-    print('XGBoost validation MAE = ', MAE)
+    plt.scatter(np.arange(1, 10 * len(test_labels), 10), test_labels, color='b', s=1)
+    i_to_c = ['g', 'r', 'y', 'black']
+    for i, pred in enumerate(predictions):
+        plt.xlabel("Given values")
+        plt.ylabel("Predictions vs Real price values")
+        print(len(test_data))
+        print(len(pred))
+        print(len(test_labels))
+        plt.scatter(np.arange(1, 10 * len(pred), 10), pred, color=i_to_c[i], s=1,
+                    label="{loss_func} with {optimizer}".format(loss_func=loss_optim[i][0],
+                                                                 optimizer=loss_optim[i][1]))
+    plt.legend(loc='upper left', prop={'size':6})
+    plt.show()
