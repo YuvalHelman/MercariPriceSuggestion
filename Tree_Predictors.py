@@ -8,6 +8,9 @@ from xgboost import XGBRegressor
 import pickle
 import pandas as pd
 from sklearn.metrics import mean_absolute_error, mean_squared_error
+from sklearn.linear_model import LinearRegression
+
+
 
 ''' Grid search implementation, taken from one of the HW we did in the course '''
 def grid_search(classifier, arguments, data, n_fold, default_args=None):
@@ -68,6 +71,12 @@ def build_models(x_train, y_train):
     XGboost_model.fit(X=x_train, y=y_train)
     XGboost_model.save_model('xgboost_model')
 
+def linear_model(x_train, y_train):
+
+    reg = LinearRegression().fit(x_train, y_train)
+    print(reg.score(x_train, y_train))
+
+    return reg
 
 if __name__ == '__main__':
     ''' build the models and put into files '''
@@ -83,19 +92,34 @@ if __name__ == '__main__':
 
 
     '''' Initiate score check on the XGBoost model '''
-    # test_data = pd.read_csv('./x_test.csv')
-    # test_labels = pd.read_csv('./y_test.csv')
-    #
+    test_data = pd.read_csv('./x_test.csv')
+    test_labels = pd.read_csv('./y_test.csv')
+
+    ''' Linear Regression '''
+    reg_model = linear_model(train_data, train_labels)
+    predictions = reg_model.predict(test_data)
+    predictions = [round(value) for value in predictions]
+    y_test_num = pd.Series(test_labels.iloc[:, 0]).tolist()
+    y_test_num = [round(value) for value in y_test_num]
+
+    ''' Calculate the mse,mae of the given predictor '''
+    mse = mean_squared_error(predictions, y_test_num)
+    mae = mean_absolute_error(predictions, y_test_num)
+    print("Linear Predictor:")
+    print("MSE: {} ".format(mse), "MAE: {} ".format(mae))
+
+    ''' Tree Predictors '''
     # predictions = XGboost_model.predict(test_data)
     # predictions = [round(value) for value in predictions]
     # y_test_num = pd.Series(test_labels.iloc[:, 0]).tolist()
     # y_test_num = [round(value) for value in y_test_num]
-    #
-    #
+
+    ''' Calculate the mse,mae of the given predictor '''
     # mse = mean_squared_error(predictions, y_test_num)
     # mae = mean_absolute_error(predictions, y_test_num)
+    # print("XGBoost Predictor:")
     # print("MSE: {} ".format(mse), "MAE: {} ".format(mae))
-    #
+
     # print(test_data.shape)
     # print(test_labels.shape)
     # print(train_data.shape)
