@@ -22,43 +22,10 @@ puredata = pd.DataFrame()
 #################################################
 
 
-def show_data_structure(f):
-    """
-    A function that prints basic information regarding the data we are dealing with
-    """
-    print('#################################################')
-    print('LOOKING ON THE DATA STRUCTURE:')
-    print('#################################################')
-    print('data size: ', len(f))
-    print(f['name'].unique())
-
-    print('#################################################')
-    print("LOOKING ON NUMBER OF UNIQUE VALUES IN EVERY FEATURE:")
-    print('#################################################')
-    print('item_condition_id: ', len(f['item_condition_id'].unique()))
-    print('category_name: ', len(f['category_name'].unique()))
-    print('brand_name: ', len(f['brand_name'].unique()))
-    print('price: ', len(f['price'].unique()))
-    print('shipping: ', len(f['shipping'].unique()))
-    print('item_description: ', len(f['item_description'].unique()))
-    print('General Info:')
-    print(f.info())
-
-    print('#################################################')
-    print('value_counts OF THE FEATURES:')
-    print('#################################################')
-    print(f.item_condition_id.value_counts())
-    print(f.shipping.value_counts())
-    print(f['brand_name'].value_counts())
-
-    print(f.head())
-
 
 ''' series_to_encode: a 'series' type to be transfered to vectors by infersent '''
 ''' batch_size_to_encode: number of sentences to encode each time (so we don't run out of RAM) '''
 ''' return: a dataframe of the sentences encodings to 4096 length vectors'''
-
-
 # https://github.com/facebookresearch/InferSent
 def infersent_encoder(series_to_encode, batch_size_to_encode):
     sentences = series_to_encode.tolist()
