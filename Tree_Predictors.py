@@ -49,24 +49,24 @@ def XGBoosting(subsample, max_depth, min_samples_split, learning_rate, eval_metr
 
 
 def build_models(x_train, y_train):
-    # boost_RF_model, param = XGBoosting(0.7, # subsample
-    #                             100, # max_depth
-    #                             5, # min_samples_split
-    #                             0.09, # learning_rate
-    #                             'mae', # eval_metric
-    #                             5,  # num_parallel_tree
-    #                             15 ) # number of trees
-    #
-    # boost_RF_model.fit(X=x_train, y=y_train)
-    # boost_RF_model.save_model('RF_model')
+    boost_RF_model = XGBoosting(0.7, # subsample
+                                400, # max_depth
+                                3, # min_samples_split
+                                0.09, # learning_rate
+                                'mae', # eval_metric
+                                20,  # num_parallel_tree
+                                500 ) # number of trees
+
+    boost_RF_model.fit(X=x_train, y=y_train)
+    boost_RF_model.save_model('RF_model')
 
     XGboost_model = XGBoosting(0.7,  # subsample
-                                20,  # max_depth
-                                5,  # min_samples_split
+                                400,  # max_depth
+                                3,  # min_samples_split
                                 0.09,  # learning_rate
-                                'mae',  # eval_metric
+                                ['mae', 'rmse'],  # eval_metric
                                 1, # num_parallel_tree
-                                250)  # number of trees
+                                2000)  # number of trees
 
     XGboost_model.fit(X=x_train, y=y_train)
     XGboost_model.save_model('xgboost_model')
@@ -84,44 +84,50 @@ if __name__ == '__main__':
     train_labels = pd.read_csv('./y_train.csv')
     build_models(train_data, train_labels)
 
+
     ''' Load the models from their files '''
-    # XGboost_model = XGBRegressor()
-    # XGboost_model.load_model('xgboost_model')
-    # boost_RF_model = XGBRegressor()
-    # boost_RF_model.load_model('RF_model')
+    XGboost_model = XGBRegressor()
+    XGboost_model.load_model('xgboost_model')
+    boost_RF_model = XGBRegressor()
+    boost_RF_model.load_model('RF_model')
 
 
-    '''' Initiate score check on the XGBoost model '''
-    test_data = pd.read_csv('./x_test.csv')
-    test_labels = pd.read_csv('./y_test.csv')
-
-    ''' Linear Regression '''
-    reg_model = linear_model(train_data, train_labels)
-    predictions = reg_model.predict(test_data)
-    predictions = [round(value) for value in predictions]
-    y_test_num = pd.Series(test_labels.iloc[:, 0]).tolist()
-    y_test_num = [round(value) for value in y_test_num]
-
-    ''' Calculate the mse,mae of the given predictor '''
-    mse = mean_squared_error(predictions, y_test_num)
-    mae = mean_absolute_error(predictions, y_test_num)
-    print("Linear Predictor:")
-    print("MSE: {} ".format(mse), "MAE: {} ".format(mae))
-
-    ''' Tree Predictors '''
-    # predictions = XGboost_model.predict(test_data)
-    # predictions = [round(value) for value in predictions]
+    # '''' Initiate score check on the XGBoost model '''
+    # test_data = pd.read_csv('./x_test.csv')
+    # test_labels = pd.read_csv('./y_test.csv')
+    #
+    # # Put test_labels into an array
     # y_test_num = pd.Series(test_labels.iloc[:, 0]).tolist()
     # y_test_num = [round(value) for value in y_test_num]
-
-    ''' Calculate the mse,mae of the given predictor '''
+    #
+    # ''' XGBoost Predictor '''
+    # predictions = XGboost_model.predict(test_data)
+    # predictions = [round(value) for value in predictions]
+    #
+    #
+    # ''' Calculate the mse,mae of the given predictor '''
     # mse = mean_squared_error(predictions, y_test_num)
     # mae = mean_absolute_error(predictions, y_test_num)
     # print("XGBoost Predictor:")
     # print("MSE: {} ".format(mse), "MAE: {} ".format(mae))
-
-    # print(test_data.shape)
-    # print(test_labels.shape)
-    # print(train_data.shape)
-    # print(train_labels.shape)
-
+    #
+    #
+    # predictions = XGboost_model.predict(test_data)
+    # predictions = [round(value) for value in predictions]
+    #
+    # ''' Calculate the mse,mae of the given predictor '''
+    # mse = mean_squared_error(predictions, y_test_num)
+    # mae = mean_absolute_error(predictions, y_test_num)
+    # print("XGBoost Predictor:")
+    # print("MSE: {} ".format(mse), "MAE: {} ".format(mae))
+    #
+    #
+    # ''' Linear Regression '''
+    # reg_model = linear_model(train_data, train_labels)
+    # predictions = reg_model.predict(test_data)
+    #
+    # ''' Calculate the mse,mae of the given predictor '''
+    # mse = mean_squared_error(predictions, y_test_num)
+    # mae = mean_absolute_error(predictions, y_test_num)
+    # print("Linear Predictor:")
+    # print("MSE: {} ".format(mse), "MAE: {} ".format(mae))
