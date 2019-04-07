@@ -12,6 +12,7 @@ import numpy as np
 import time
 from sklearn.decomposition import PCA
 from sklearn.model_selection import train_test_split
+import openpyxl as pxl
 
 
 #################################################
@@ -77,6 +78,36 @@ def infersent_encoder(series_to_encode, batch_size_to_encode):
     full_embeddings = pd.DataFrame.from_records(full_embeddings)
     return full_embeddings
 
+
+def string_of_all_text_columns(row):
+    new_string = ''
+
+    if (not (row['name'] == 'not known')):
+        new_string = new_string + " " + row['name']
+
+    if (not (row['category_name'] == 'not known')):
+        new_string = new_string + " " + row['category_name']
+
+    if (not (row['brand_name'] == 'not known')):
+        new_string = new_string + " " + row['brand_name']
+
+    if (not (row['item_description'] == 'not known')) and (not (row['item_description'] == 'No description yet')):
+        new_string = new_string + " " + row['item_description']
+
+    Combined_columns = new_string
+
+    return Combined_columns
+
+
+def combine_text_columns_into_one_later(data):
+    ret_data = data.copy()
+    ret_data.apply(lambda row: string_of_all_text_columns(row), axis=1)
+
+    ret_data['text_column'] = ret_data.apply(lambda row: string_of_all_text_columns(row), axis=1)
+
+    return ret_data
+
+
 def data_preprocessing(data, start_index, end_index):
     """
     A preprocessing of the data, using InferSent, One-Hot encodings and arranging NaN's etc.
@@ -126,60 +157,66 @@ def data_preprocessing(data, start_index, end_index):
     # ___________________________________________________________________________________________________
     # Using infersent on the item_description column in order to transpose it to vectors (size: 4096)
 
+    # Combine all of the text columns into one. this is mainly to have the encoding run faster
+    data = combine_text_columns_into_one_later(data)
+    data.drop(['item_description'], axis=1, inplace=True)
+    data.drop(['name'], axis=1, inplace=True)
+    data.drop(['category_name'], axis=1, inplace=True)
+    data.drop(['brand_name'], axis=1, inplace=True)
+
+
     data.drop(['train_id'], axis=1, inplace=True)
 
 
     row_indices_list = range(start_index,end_index)
-    batch_size_to_encode = 5 # TODO: for all data encoding
+    batch_size_to_encode = 5000 # TODO: for all data encoding
 
     new_vectors_df = data.copy() # Start working with new_vectors_df
 
-    start = time.time()
-    description_embeddings = infersent_encoder(pd.Series(data["item_description"]), batch_size_to_encode)
-    #description_embeddings.index = row_indices_list  # needed for append
-    ############################################################
-    new_vectors_df.drop(['item_description'], axis=1, inplace=True)
+    description_embeddings = infersent_encoder(pd.Series(data["text_column"]), batch_size_to_encode)
+    description_embeddings.index = row_indices_list  # needed for append
+
+    new_vectors_df.drop(['text_column'], axis=1, inplace=True)
     new_vectors_df = pd.concat([new_vectors_df, description_embeddings], axis=1)
-    ############################################################
-    print("done encoding item_description")
-    end = time.time()
-    print("Time for this encoding: ", end - start)
-
-    start = time.time()
-    description_embeddings = infersent_encoder(pd.Series(data["name"]), batch_size_to_encode)
-    # description_embeddings.index = row_indices_list  # needed for append
-    ############################################################
-    new_vectors_df.drop(['name'], axis=1, inplace=True)
-    new_vectors_df = pd.concat([new_vectors_df, description_embeddings], axis=1)
-    ############################################################
-    print("done encoding name")
-    end = time.time()
-    print("Time for this encoding: ", end - start)
-
-    start = time.time()
-    description_embeddings = infersent_encoder(pd.Series(data["category_name"]), batch_size_to_encode)
-    # description_embeddings.index = row_indices_list  # needed for append
-    ############################################################
-    new_vectors_df.drop(['category_name'], axis=1, inplace=True)
-    new_vectors_df = pd.concat([new_vectors_df, description_embeddings], axis=1)
-    ############################################################
-    print("done encoding category_name")
-    end = time.time()
-    print("Time for this encoding: ", end - start)
-
-    start = time.time()
-    description_embeddings = infersent_encoder(pd.Series(data["brand_name"]), batch_size_to_encode)
-    #description_embeddings.index = row_indices_list  # needed for append
-    ############################################################
-    new_vectors_df.drop(['brand_name'], axis=1, inplace=True)
-    new_vectors_df = pd.concat([new_vectors_df, description_embeddings], axis=1)
-    ############################################################
-    print("done encoding brand_name")
-    end = time.time()
-    print("Time for this encoding: ", end - start)
 
 
-    new_vectors_df.to_csv('./numeric_train_0_100k.csv', index=False, header=False)
+    # start = time.time()
+    # description_embeddings = infersent_encoder(pd.Series(data["name"]), batch_size_to_encode)
+    # # description_embeddings.index = row_indices_list  # needed for append
+    # ############################################################
+    # new_vectors_df.drop(['name'], axis=1, inplace=True)
+    # new_vectors_df = pd.concat([new_vectors_df, description_embeddings], axis=1)
+    # ############################################################
+    # print("done encoding name")
+    # end = time.time()
+    # print("Time for this encoding: ", end - start)
+    #
+    # start = time.time()
+    # description_embeddings = infersent_encoder(pd.Series(data["category_name"]), batch_size_to_encode)
+    # # description_embeddings.index = row_indices_list  # needed for append
+    # ############################################################
+    # new_vectors_df.drop(['category_name'], axis=1, inplace=True)
+    # new_vectors_df = pd.concat([new_vectors_df, description_embeddings], axis=1)
+    # ############################################################
+    # print("done encoding category_name")
+    # end = time.time()
+    # print("Time for this encoding: ", end - start)
+    #
+    # start = time.time()
+    # description_embeddings = infersent_encoder(pd.Series(data["brand_name"]), batch_size_to_encode)
+    # #description_embeddings.index = row_indices_list  # needed for append
+    # ############################################################
+    # new_vectors_df.drop(['brand_name'], axis=1, inplace=True)
+    # new_vectors_df = pd.concat([new_vectors_df, description_embeddings], axis=1)
+    # ############################################################
+    # print("done encoding brand_name")
+    # end = time.time()
+    # print("Time for this encoding: ", end - start)
+
+
+    new_vectors_df.to_csv('./numeric_train_test.csv', index=False, header=True)
+    with open("output.xlsx", 'w') as file:
+        new_vectors_df.to_excel(file                , index=False, header=True)
     #
     # with open('./numeric_train_appended.csv', 'a') as file:
     #     new_vectors_df.to_csv(file, index=False, header=False)
@@ -191,8 +228,7 @@ def data_preprocessing(data, start_index, end_index):
 def build_numerical_data(data):
     start = time.time()
 
-
-    start_index, end_index = 20 , 40
+    start_index, end_index = 0, 10000
     data_preprocessing(data, start_index, end_index)
 
     ##### Save training data into a CSV (only on first batch):
@@ -224,6 +260,7 @@ def get_reduced_data(data, reduced_dim=500):
     return X_train, X_test, y_train, y_test
 
 
+
 if __name__ == '__main__':
 
     '''fetching the data and transforming it into numerical data using Infersent '''
@@ -244,4 +281,8 @@ if __name__ == '__main__':
     # y_test.to_csv('./y_test.csv', encoding='utf_8', index=False, header=True)
     # X_train.to_csv('./x_train.csv', encoding='utf_8', index=False, header=True)
     # y_train.to_csv('./y_train.csv', encoding='utf_8', index=False, header=True)
+
+    # df = pd.read_excel("output.xlsx", header=True, index_col=None, )
+    # print(df.head(5))
+    # print(df.info())
 
