@@ -5,6 +5,9 @@
 
 from mercariPriceData.InferSent.encoder.models import InferSent  # change folders
 import pandas as pd
+from pandas import DataFrame
+import os
+import pickle
 import testing_the_data as tests
 import torch
 import nltk
@@ -75,7 +78,8 @@ def infersent_encoder(series_to_encode, batch_size_to_encode):
         print(e)
 
     full_embeddings = full_embeddings[1:]
-    full_embeddings = pd.DataFrame.from_records(full_embeddings)
+    print(full_embeddings.shape)
+
     return full_embeddings
 
 
@@ -163,64 +167,26 @@ def data_preprocessing(data, start_index, end_index):
     data.drop(['name'], axis=1, inplace=True)
     data.drop(['category_name'], axis=1, inplace=True)
     data.drop(['brand_name'], axis=1, inplace=True)
-
-
+    # Drop the train_id column
     data.drop(['train_id'], axis=1, inplace=True)
 
 
     row_indices_list = range(start_index,end_index)
     batch_size_to_encode = 5000 # TODO: for all data encoding
 
-    new_vectors_df = data.copy() # Start working with new_vectors_df
-
+    # encode the text column using Infersent.
+    # returns a numpy array of shape (rows, 4096)
     description_embeddings = infersent_encoder(pd.Series(data["text_column"]), batch_size_to_encode)
-    description_embeddings.index = row_indices_list  # needed for append
-
-    new_vectors_df.drop(['text_column'], axis=1, inplace=True)
-    new_vectors_df = pd.concat([new_vectors_df, description_embeddings], axis=1)
-
-
-    # start = time.time()
-    # description_embeddings = infersent_encoder(pd.Series(data["name"]), batch_size_to_encode)
-    # # description_embeddings.index = row_indices_list  # needed for append
-    # ############################################################
-    # new_vectors_df.drop(['name'], axis=1, inplace=True)
-    # new_vectors_df = pd.concat([new_vectors_df, description_embeddings], axis=1)
-    # ############################################################
-    # print("done encoding name")
-    # end = time.time()
-    # print("Time for this encoding: ", end - start)
+    description_df = DataFrame.from_records(description_embeddings)
+    # description_df = pd.DataFrame( description_embeddings[0].reshape(-1, 4096) )
+    # for i in range(description_embeddings.shape[0]):
+    #     description_df.loc[i] = description_embeddings[i]
     #
-    # start = time.time()
-    # description_embeddings = infersent_encoder(pd.Series(data["category_name"]), batch_size_to_encode)
-    # # description_embeddings.index = row_indices_list  # needed for append
-    # ############################################################
-    # new_vectors_df.drop(['category_name'], axis=1, inplace=True)
-    # new_vectors_df = pd.concat([new_vectors_df, description_embeddings], axis=1)
-    # ############################################################
-    # print("done encoding category_name")
-    # end = time.time()
-    # print("Time for this encoding: ", end - start)
-    #
-    # start = time.time()
-    # description_embeddings = infersent_encoder(pd.Series(data["brand_name"]), batch_size_to_encode)
-    # #description_embeddings.index = row_indices_list  # needed for append
-    # ############################################################
-    # new_vectors_df.drop(['brand_name'], axis=1, inplace=True)
-    # new_vectors_df = pd.concat([new_vectors_df, description_embeddings], axis=1)
-    # ############################################################
-    # print("done encoding brand_name")
-    # end = time.time()
-    # print("Time for this encoding: ", end - start)
+    data.drop(['text_column'], axis=1, inplace=True)
+    data = pd.concat([data, description_df], axis=1)
 
-
-    new_vectors_df.to_csv('./numeric_train_test.csv', index=False, header=True)
-    with open("output.xlsx", 'w') as file:
-        new_vectors_df.to_excel(file                , index=False, header=True)
-    #
-    # with open('./numeric_train_appended.csv', 'a') as file:
-    #     new_vectors_df.to_csv(file, index=False, header=False)
-    # ___________________________________________________________________________________________________
+    # Write it to a pickle file # TODO: add this for more data generation
+    data.to_pickle('./output_pickle_{}_{}.pkl'.format(start_index, end_index), compression='bz2')
 
     return data
 
@@ -228,7 +194,8 @@ def data_preprocessing(data, start_index, end_index):
 def build_numerical_data(data):
     start = time.time()
 
-    start_index, end_index = 0, 10000
+    ''' preprocessing only a limited number of the data due to RAM constraints'''
+    start_index, end_index = 200000, 250000  # TODO: add this for more data generation
     data_preprocessing(data, start_index, end_index)
 
     ##### Save training data into a CSV (only on first batch):
@@ -241,7 +208,7 @@ def build_numerical_data(data):
 ''' 
 Splitting the labels and the predictive data and using PCA to reduce dimensionality
 '''
-def get_reduced_data(data, reduced_dim=500):
+def get_reduced_data(data, reduced_dim=200):
     # Get labels outside
 
     labels = data.loc[:, 'price'].copy()
@@ -249,40 +216,37 @@ def get_reduced_data(data, reduced_dim=500):
 
     pca = PCA(n_components=reduced_dim)
     Reduced_data = pca.fit_transform(data)
+    del data
     Reduced_data = pd.DataFrame(Reduced_data)
 
-    X_train, X_test, y_train, y_test = train_test_split(
-        Reduced_data, labels, test_size=0.33, random_state=None)
-
-    print("data shape before: ", data.shape)
-    print("data shape after: ", Reduced_data.shape)
-
-    return X_train, X_test, y_train, y_test
+    return Reduced_data, labels
 
 
 
 if __name__ == '__main__':
 
     '''fetching the data and transforming it into numerical data using Infersent '''
-    puredata = pd.read_csv('./mercariPriceData/dataset/train.tsv', sep='\t', encoding="utf_8")  # change folders
-    build_numerical_data(puredata)
-
-    ######### DEBUG ###############################
-    # try_data = pd.read_csv('./numeric_train_appended.csv, header=0)  # change folders
-    # print(try_data.shape)
-    # ##############################################
+    #puredata = pd.read_csv('./mercariPriceData/dataset/train.tsv', sep='\t', encoding="utf_8")  # change folders
+    # build_numerical_data(puredata)
 
 
     ''' Write the numeric data into a CSV, then use PCA on it and save to another CSV (split to test/train) '''
-    # n_data = pd.read_csv('./numeric_train.csv')  # change folders
-    #print(n_data.shape)
-    # X_train, X_test, y_train, y_test = get_reduced_data(n_data, 500)
-    # X_test.to_csv('./x_test.csv', encoding='utf_8', index=False, header=True)
-    # y_test.to_csv('./y_test.csv', encoding='utf_8', index=False, header=True)
-    # X_train.to_csv('./x_train.csv', encoding='utf_8', index=False, header=True)
-    # y_train.to_csv('./y_train.csv', encoding='utf_8', index=False, header=True)
+    # df = pd.read_pickle('./output_pickle_0_15.pkl', compression='bz2')
+    # x_train, y_train = get_reduced_data(df, 100) # TODO: change to pickle
+    #
+    # x_train.to_pickle('x_train.pkl', compression='bz2')
+    # y_train.to_pickle('y_train.pkl', compression='bz2')
 
-    # df = pd.read_excel("output.xlsx", header=True, index_col=None, )
-    # print(df.head(5))
-    # print(df.info())
+    ''' Concatenate different files of processed data '''
+    # df = pd.read_pickle('./output_pickle_15_25.pkl', compression='bz2')
+    # x_test, y_test = get_reduced_data(df, 100)  # TODO: change to pickle
+    # x_test.to_pickle('x_test.pkl', compression='bz2')
+    # y_test.to_pickle('y_test.pkl', compression='bz2')
 
+
+    #  Combining pickle files into ones.
+    # df2 = pd.read_pickle('./output_pickle_25_40.pkl', compression='bz2')
+    # df = pd.read_pickle('./output_pickle_200000_250000.pkl', compression='bz2')
+    # comb_df = pd.concat([df, df2], ignore_index=True)
+    # comb_df.to_pickle('./output_pickle_25_40.pkl', compression='bz2')
+    #
