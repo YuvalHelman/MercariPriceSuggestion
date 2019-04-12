@@ -33,17 +33,43 @@ def show_data_structure(f):
     print(f.item_condition_id.value_counts())
     print(f.shipping.value_counts())
 
+    print("Shipping distribution:")
+    print(f.shipping.value_counts() / len(f))
+
     #print(f.head())
 
 
+def present_correlated_hist(data):
+    
+    prc_shipBySeller = data.loc[data.shipping == 1, 'price']
+    prc_shipByBuyer = data.loc[data.shipping == 0, 'price']
+    fig, ax = plt.subplots(figsize=(20, 10))
+    ax.hist(np.log(prc_shipBySeller + 1), color='#8CB4E1', alpha=1.0, bins=50,
+            label='Price when Seller pays Shipping')
+    ax.hist(np.log(prc_shipByBuyer + 1), color='#007D00', alpha=0.7, bins=50,
+            label='Price when Buyer pays Shipping')
+    ax.set(title='Histogram Comparison', ylabel='% of Dataset in Bin')
+    plt.xlabel('log(price+1)', fontsize=17)
+    plt.ylabel('frequency', fontsize=17)
+    plt.title('Price Distribution by Shipping Type', fontsize=17)
+    plt.tick_params(labelsize=15)
+    plt.show()
+    plt.clf()
+    plt.cla()
+
+
 def presentations(data):
+
+
+
+
     # Show information about the price labels
     print(data['price'].describe())
-
-
-    log_func = lambda x:  np.log()
-    log_price_series = np.log(data['price'])
-    log_price_series.hist()
+    eps = 0.000001
+    log_price_series = np.log(data['price'].radd(1))
+    plt.xlabel('prices+1 log-scale')
+    plt.ylabel('Number of items with given price')
+    log_price_series.hist(bins=50)
     plt.title('prices log-scale')
     plt.show()
     plt.clf()
