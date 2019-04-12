@@ -4,4 +4,9 @@ x_test.csv
 x_train.csv
 y_test.csv
 y_train.csv
+x_test.pkl
+x_train.pkl
+y_test.pkl
+y_train.pkl
 xgboost_model
+.idea/priceSuggestionMercari.iml
