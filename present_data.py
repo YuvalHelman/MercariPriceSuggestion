@@ -1,7 +1,7 @@
 import pandas as pd
 from matplotlib import pyplot as plt
 from matplotlib import cm as cm
-
+import numpy as np
 
 def show_data_structure(f):
     """
@@ -37,7 +37,19 @@ def show_data_structure(f):
 
 
 def presentations(data):
+    # Show information about the price labels
+    print(data['price'].describe())
 
+
+    log_func = lambda x:  np.log()
+    log_price_series = np.log(data['price'])
+    log_price_series.hist()
+    plt.title('prices log-scale')
+    plt.show()
+    plt.clf()
+    plt.cla()
+
+    ''' Showing different numeric values histograms'''
     data['item_condition_id'].hist()
     plt.title('item_condition_id')
     plt.show()
