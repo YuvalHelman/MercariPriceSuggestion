@@ -55,7 +55,7 @@ if __name__ == '__main__':
     y_train = pd.read_pickle('../mercariData/y_train.pkl', compression='bz2')
     y_train = torch.FloatTensor(y_train.values)
     y_test = pd.read_pickle('../mercariData/y_test.pkl', compression='bz2')
-    y_test = torch.FloatTensor(y_test.values)
+    # y_test = torch.FloatTensor(y_test.values)
     print("Loaded data")
     model = MLP()
     optimizer = torch.optim.Adam(model.parameters(), lr=3e-3)
@@ -82,18 +82,15 @@ if __name__ == '__main__':
 
             train_losses.append(loss.item())
 
-    print(train_losses)
     # evaluating the results
+    print("Evaluating the model...")
     model.eval()
-    test_preds = torch.LongTensor()
+    outputs = []
 
     for i, data in enumerate(x_test):
-        outputs = model(data)
+        outputs.append(model(data))
 
-        pred = outputs.max(1, keepdim=True)[1]
-        test_preds = torch.cat((test_preds, pred), dim=0)
-
-    test_score = mean_squared_error(y_test, test_preds)
-    rmsle_score = rmsle(y_test, test_preds)
-    print("The test MSE score is: %d" % test_score)
-    print("The test RMSLE score is: %d" % rmsle_score)
+    test_score = mean_squared_error(y_test, outputs)
+    rmsle_score = rmsle(y_test, outputs)
+    print("The test MSE score is: %f" % test_score)
+    print("The test RMSLE score is: %f" % rmsle_score)
