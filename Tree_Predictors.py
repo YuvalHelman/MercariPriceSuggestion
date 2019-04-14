@@ -79,11 +79,10 @@ def linear_model(x_train, y_train):
     return reg
 
 if __name__ == '__main__':
-    ''' build the models and put into files '''
+    ''' build the models and put them into files '''
     train_data = pd.read_csv('./x_train.csv')
     train_labels = pd.read_csv('./y_train.csv')
     # build_models(train_data, train_labels)
-
 
     ''' Load the models from their files '''
     XGboost_model = XGBRegressor()
